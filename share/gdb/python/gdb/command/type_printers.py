@@ -35,26 +35,23 @@ Usage: info type-printers"""
         sorted_type_printers = sorted (copy.copy(type_printers),
                                        key = lambda x: x.name)
         for printer in sorted_type_printers:
-            if printer.enabled:
-                enabled = ''
-            else:
-                enabled = " [disabled]"
-            print ("  %s%s" % (printer.name, enabled))
+            enabled = '' if printer.enabled else " [disabled]"
+            print(f"  {printer.name}{enabled}")
 
     def invoke(self, arg, from_tty):
         """GDB calls this to perform the command."""
         sep = ''
         for objfile in gdb.objfiles():
             if objfile.type_printers:
-                print ("%sType printers for %s:" % (sep, objfile.filename))
+                print(f"{sep}Type printers for {objfile.filename}:")
                 self.list_type_printers(objfile.type_printers)
                 sep = '\n'
         if gdb.current_progspace().type_printers:
-            print ("%sType printers for program space:" % sep)
+            print(f"{sep}Type printers for program space:")
             self.list_type_printers(gdb.current_progspace().type_printers)
             sep = '\n'
         if gdb.type_printers:
-            print ("%sGlobal type printers:" % sep)
+            print(f"{sep}Global type printers:")
             self.list_type_printers(gdb.type_printers)
 
 class _EnableOrDisableCommand(gdb.Command):
@@ -82,7 +79,7 @@ class _EnableOrDisableCommand(gdb.Command):
             if self.set_some(name, gdb.type_printers):
                 ok = True
             if not ok:
-                print ("No type printer named '%s'" % name)
+                print(f"No type printer named '{name}'")
 
     def add_some(self, result, word, printers):
         for p in printers:

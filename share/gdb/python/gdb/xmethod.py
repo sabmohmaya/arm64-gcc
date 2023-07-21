@@ -233,10 +233,14 @@ def _validate_xmethod_matcher(matcher):
 # found in LOCUS, then -1 is returned.
 
 def _lookup_xmethod_matcher(locus, name):
-    for i in range(0, len(locus.xmethods)):
-        if locus.xmethods[i].name == name:
-            return i
-    return -1
+    return next(
+        (
+            i
+            for i in range(0, len(locus.xmethods))
+            if locus.xmethods[i].name == name
+        ),
+        -1,
+    )
 
 
 def register_xmethod_matcher(locus, matcher, replace=False):
@@ -254,22 +258,19 @@ def register_xmethod_matcher(locus, matcher, replace=False):
             same name in the locus.  Otherwise, if a matcher with the same name
             exists in the locus, raise an exception.
     """
-    err = _validate_xmethod_matcher(matcher)
-    if err:
+    if err := _validate_xmethod_matcher(matcher):
         raise err
     if not locus:
         locus = gdb
-    if locus == gdb:
-        locus_name = "global"
-    else:
-        locus_name = locus.filename
+    locus_name = "global" if locus == gdb else locus.filename
     index = _lookup_xmethod_matcher(locus, matcher.name)
     if index >= 0:
         if replace:
             del locus.xmethods[index]
         else:
-            raise RuntimeError("Xmethod matcher already registered with "
-                               "%s: %s" % (locus_name, matcher.name))
+            raise RuntimeError(
+                f"Xmethod matcher already registered with {locus_name}: {matcher.name}"
+            )
     if gdb.parameter("verbose"):
         gdb.write("Registering xmethod matcher '%s' with %s' ...\n")
     locus.xmethods.insert(0, matcher)

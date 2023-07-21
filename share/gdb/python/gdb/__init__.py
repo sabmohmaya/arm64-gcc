@@ -160,7 +160,7 @@ def _auto_load_packages():
 
             for py_file in py_files:
                 # Construct from foo.py, gdb.module.foo
-                modname = "%s.%s.%s" % ( __name__, package, py_file[:-3] )
+                modname = f"{__name__}.{package}.{py_file[:-3]}"
                 try:
                     if modname in sys.modules:
                         # reload modules with duplicate names

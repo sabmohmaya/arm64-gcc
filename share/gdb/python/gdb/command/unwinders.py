@@ -22,7 +22,7 @@ def validate_regexp(exp, idstring):
     try:
         return re.compile(exp)
     except SyntaxError:
-        raise SyntaxError("Invalid %s regexp: %s." % (idstring, exp))
+        raise SyntaxError(f"Invalid {idstring} regexp: {exp}.")
 
 
 def parse_unwinder_command_args(arg):
@@ -85,8 +85,7 @@ in the locus are listed."""
         print(title)
         for unwinder in unwinders:
             if name_re.match(unwinder.name):
-                print("  %s%s" % (unwinder.name,
-                                  "" if unwinder.enabled else " [disabled]"))
+                print(f'  {unwinder.name}{"" if unwinder.enabled else " [disabled]"}')
 
     def invoke(self, arg, from_tty):
         locus_re, name_re = parse_unwinder_command_args(arg)
@@ -95,12 +94,14 @@ in the locus are listed."""
                                 name_re)
         if locus_re.match("progspace"):
             cp = gdb.current_progspace()
-            self.list_unwinders("Progspace %s:" % cp.filename,
-                                cp.frame_unwinders, name_re)
+            self.list_unwinders(f"Progspace {cp.filename}:", cp.frame_unwinders, name_re)
         for objfile in gdb.objfiles():
             if locus_re.match(objfile.filename):
-                self.list_unwinders("Objfile %s:" % objfile.filename,
-                                    objfile.frame_unwinders, name_re)
+                self.list_unwinders(
+                    f"Objfile {objfile.filename}:",
+                    objfile.frame_unwinders,
+                    name_re,
+                )
 
 
 def do_enable_unwinder1(unwinders, name_re, flag):
