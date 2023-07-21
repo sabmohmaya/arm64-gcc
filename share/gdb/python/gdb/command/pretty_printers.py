@@ -40,13 +40,11 @@ def parse_printer_regexps(arg):
 
     argv = gdb.string_to_argv(arg);
     argc = len(argv)
-    object_regexp = ""  # match everything
     name_regexp = ""  # match everything
     subname_regexp = None
     if argc > 3:
         raise SyntaxError("too many arguments")
-    if argc >= 1:
-        object_regexp = argv[0]
+    object_regexp = argv[0] if argc >= 1 else ""
     if argc >= 2:
         name_subname = argv[1].split(";", 1)
         name_regexp = name_subname[0]
@@ -58,16 +56,16 @@ def parse_printer_regexps(arg):
     try:
         object_re = re.compile(object_regexp)
     except SyntaxError:
-        raise SyntaxError("invalid object regexp: %s" % object_regexp)
+        raise SyntaxError(f"invalid object regexp: {object_regexp}")
     try:
         name_re = re.compile (name_regexp)
     except SyntaxError:
-        raise SyntaxError("invalid name regexp: %s" % name_regexp)
+        raise SyntaxError(f"invalid name regexp: {name_regexp}")
     if subname_regexp is not None:
         try:
             subname_re = re.compile(subname_regexp)
         except SyntaxError:
-            raise SyntaxError("invalid subname regexp: %s" % subname_regexp)
+            raise SyntaxError(f"invalid subname regexp: {subname_regexp}")
     else:
         subname_re = None
     return(object_re, name_re, subname_re)
@@ -75,10 +73,7 @@ def parse_printer_regexps(arg):
 
 def printer_enabled_p(printer):
     """Internal utility to see if printer (or subprinter) is enabled."""
-    if hasattr(printer, "enabled"):
-        return printer.enabled
-    else:
-        return True
+    return printer.enabled if hasattr(printer, "enabled") else True
 
 
 class InfoPrettyPrinter(gdb.Command):
@@ -101,23 +96,14 @@ printer-name;subprinter-name."""
     @staticmethod
     def enabled_string(printer):
         """Return "" if PRINTER is enabled, otherwise " [disabled]"."""
-        if printer_enabled_p(printer):
-            return ""
-        else:
-            return " [disabled]"
+        return "" if printer_enabled_p(printer) else " [disabled]"
 
     @staticmethod
     def printer_name(printer):
         """Return the printer's name."""
         if hasattr(printer, "name"):
             return printer.name
-        if hasattr(printer, "__name__"):
-            return printer.__name__
-        # This "shouldn't happen", but the public API allows for
-        # direct additions to the pretty-printer list, and we shouldn't
-        # crash because someone added a bogus printer.
-        # Plus we want to give the user a way to list unknown printers.
-        return "unknown"
+        return printer.__name__ if hasattr(printer, "__name__") else "unknown"
 
     def list_pretty_printers(self, pretty_printers, name_re, subname_re):
         """Print a list of pretty-printers."""
@@ -129,7 +115,7 @@ printer-name;subprinter-name."""
             name = self.printer_name(printer)
             enabled = self.enabled_string(printer)
             if name_re.match(name):
-                print ("  %s%s" % (name, enabled))
+                print(f"  {name}{enabled}")
                 if (hasattr(printer, "subprinters") and
                     printer.subprinters is not None):
                     sorted_subprinters = sorted (copy.copy(printer.subprinters),
@@ -137,9 +123,7 @@ printer-name;subprinter-name."""
                     for subprinter in sorted_subprinters:
                         if (not subname_re or
                             subname_re.match(subprinter.name)):
-                            print ("    %s%s" %
-                                   (subprinter.name,
-                                    self.enabled_string(subprinter)))
+                            print(f"    {subprinter.name}{self.enabled_string(subprinter)}")
 
     def invoke1(self, title, printer_list,
                 obj_name_to_match, object_re, name_re, subname_re):
@@ -154,13 +138,23 @@ printer-name;subprinter-name."""
         self.invoke1("global pretty-printers:", gdb.pretty_printers,
                      "global", object_re, name_re, subname_re)
         cp = gdb.current_progspace()
-        self.invoke1("progspace %s pretty-printers:" % cp.filename,
-                     cp.pretty_printers, "progspace",
-                     object_re, name_re, subname_re)
+        self.invoke1(
+            f"progspace {cp.filename} pretty-printers:",
+            cp.pretty_printers,
+            "progspace",
+            object_re,
+            name_re,
+            subname_re,
+        )
         for objfile in gdb.objfiles():
-            self.invoke1("objfile %s pretty-printers:" % objfile.filename,
-                         objfile.pretty_printers, objfile.filename,
-                         object_re, name_re, subname_re)
+            self.invoke1(
+                f"objfile {objfile.filename} pretty-printers:",
+                objfile.pretty_printers,
+                objfile.filename,
+                object_re,
+                name_re,
+                subname_re,
+            )
 
 
 def count_enabled_printers(pretty_printers):
@@ -203,10 +197,7 @@ def count_all_enabled_printers():
 
 def pluralize(text, n, suffix="s"):
     """Return TEXT pluralized if N != 1."""
-    if n != 1:
-        return "%s%s" % (text, suffix)
-    else:
-        return text
+    return f"{text}{suffix}" if n != 1 else text
 
 
 def show_pretty_printer_enabled_summary():
@@ -217,7 +208,7 @@ def show_pretty_printer_enabled_summary():
     print ("%d of %d printers enabled" % (enabled_count, total_count))
 
 
-def do_enable_pretty_printer_1 (pretty_printers, name_re, subname_re, flag):
+def do_enable_pretty_printer_1(pretty_printers, name_re, subname_re, flag):
     """Worker for enabling/disabling pretty-printers.
 
     Arguments:
@@ -237,15 +228,7 @@ def do_enable_pretty_printer_1 (pretty_printers, name_re, subname_re, flag):
             hasattr(printer, "__name__") and name_re.match(printer.__name__)):
             if (hasattr(printer, "subprinters") and
                 printer.subprinters is not None):
-                if not subname_re:
-                    # Only record printers that change state.
-                    if printer_enabled_p(printer) != flag:
-                        for subprinter in printer.subprinters:
-                            if printer_enabled_p(subprinter):
-                                total += 1
-                    # NOTE: We preserve individual subprinter settings.
-                    printer.enabled = flag
-                else:
+                if subname_re:
                     # NOTE: Whether this actually disables the subprinter
                     # depends on whether the printer's lookup function supports
                     # the "enable" API.  We can only assume it does.
@@ -256,26 +239,23 @@ def do_enable_pretty_printer_1 (pretty_printers, name_re, subname_re, flag):
                                printer_enabled_p(subprinter) != flag):
                                total += 1
                            subprinter.enabled = flag
-            else:
-                # This printer has no subprinters.
-                # If the user does "disable pretty-printer .* .* foo"
-                # should we disable printers that don't have subprinters?
-                # How do we apply "foo" in this context?  Since there is no
-                # "foo" subprinter it feels like we should skip this printer.
-                # There's still the issue of how to handle
-                # "disable pretty-printer .* .* .*", and every other variation
-                # that can match everything.  For now punt and only support
-                # "disable pretty-printer .* .*" (i.e. subname is elided)
-                # to disable everything.
-                if not subname_re:
+                else:
                     # Only record printers that change state.
                     if printer_enabled_p(printer) != flag:
-                        total += 1
+                        for subprinter in printer.subprinters:
+                            if printer_enabled_p(subprinter):
+                                total += 1
+                    # NOTE: We preserve individual subprinter settings.
                     printer.enabled = flag
+            elif not subname_re:
+                # Only record printers that change state.
+                if printer_enabled_p(printer) != flag:
+                    total += 1
+                printer.enabled = flag
     return total
 
 
-def do_enable_pretty_printer (arg, flag):
+def do_enable_pretty_printer(arg, flag):
     """Internal worker for enabling/disabling pretty-printers."""
     (object_re, name_re, subname_re) = parse_printer_regexps(arg)
 
@@ -292,10 +272,7 @@ def do_enable_pretty_printer (arg, flag):
             total += do_enable_pretty_printer_1(objfile.pretty_printers,
                                                 name_re, subname_re, flag)
 
-    if flag:
-        state = "enabled"
-    else:
-        state = "disabled"
+    state = "enabled" if flag else "disabled"
     print ("%d %s %s" % (total, pluralize("printer", total), state))
 
     # Print the total list of printers currently enabled/disabled.

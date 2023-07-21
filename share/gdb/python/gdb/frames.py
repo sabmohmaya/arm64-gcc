@@ -120,16 +120,15 @@ def return_list(name):
 
     if name == "global":
         return gdb.frame_filters
+    if name == "progspace":
+        cp = gdb.current_progspace()
+        return cp.frame_filters
     else:
-        if name == "progspace":
-            cp = gdb.current_progspace()
-            return cp.frame_filters
-        else:
-            for objfile in gdb.objfiles():
-                if name == objfile.filename:
-                    return objfile.frame_filters
+        for objfile in gdb.objfiles():
+            if name == objfile.filename:
+                return objfile.frame_filters
 
-    msg = "Cannot find frame-filter dictionary for '" + name + "'"
+    msg = f"Cannot find frame-filter dictionary for '{name}'"
     raise gdb.GdbError(msg)
 
 def _sort_list():
@@ -179,7 +178,7 @@ def execute_frame_filters(frame, frame_low, frame_high):
 
     # Check to see if there are any frame-filters.  If not, just
     # return None and let default backtrace printing occur.
-    if len(sorted_list) == 0:
+    if not sorted_list:
         return None
 
     frame_iterator = FrameIterator(frame)
@@ -216,13 +215,7 @@ def execute_frame_filters(frame, frame_low, frame_high):
     # -1 for frame_high means until the end of the backtrace.  Set to
     # None if that is the case, to indicate to itertools.islice to
     # slice to the end of the iterator.
-    if frame_high == -1:
-        frame_high = None
-    else:
-        # As frames start from 0, add one to frame_high so islice
-        # correctly finds the end
-        frame_high = frame_high + 1;
-
+    frame_high = None if frame_high == -1 else frame_high + 1
     sliced = itertools.islice(frame_iterator, frame_low, frame_high)
 
     return sliced

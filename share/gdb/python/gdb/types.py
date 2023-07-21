@@ -30,11 +30,12 @@ def get_basic_type(type_):
         and typedefs/references converted to the underlying type.
     """
 
-    while (type_.code == gdb.TYPE_CODE_REF or
-           type_.code == gdb.TYPE_CODE_RVALUE_REF or
-           type_.code == gdb.TYPE_CODE_TYPEDEF):
-        if (type_.code == gdb.TYPE_CODE_REF or
-            type_.code == gdb.TYPE_CODE_RVALUE_REF):
+    while type_.code in [
+        gdb.TYPE_CODE_REF,
+        gdb.TYPE_CODE_RVALUE_REF,
+        gdb.TYPE_CODE_TYPEDEF,
+    ]:
+        if type_.code in [gdb.TYPE_CODE_REF, gdb.TYPE_CODE_RVALUE_REF]:
             type_ = type_.target()
         else:
             type_ = type_.strip_typedefs()
@@ -57,18 +58,15 @@ def has_field(type_, field):
     """
 
     type_ = get_basic_type(type_)
-    if (type_.code != gdb.TYPE_CODE_STRUCT and
-        type_.code != gdb.TYPE_CODE_UNION):
+    if type_.code not in [gdb.TYPE_CODE_STRUCT, gdb.TYPE_CODE_UNION]:
         raise TypeError("not a struct or union")
-    for f in type_.fields():
-        if f.is_base_class:
-            if has_field(f.type, field):
-                return True
-        else:
-            # NOTE: f.name could be None
-            if f.name == field:
-                return True
-    return False
+    return any(
+        f.is_base_class
+        and has_field(f.type, field)
+        or not f.is_base_class
+        and f.name == field
+        for f in type_.fields()
+    )
 
 
 def make_enum_dict(enum_type):
@@ -86,14 +84,10 @@ def make_enum_dict(enum_type):
 
     if enum_type.code != gdb.TYPE_CODE_ENUM:
         raise TypeError("not an enum type")
-    enum_dict = {}
-    for field in enum_type.fields():
-        # The enum's value is stored in "enumval".
-        enum_dict[field.name] = field.enumval
-    return enum_dict
+    return {field.name: field.enumval for field in enum_type.fields()}
 
 
-def deep_items (type_):
+def deep_items(type_):
     """Return an iterator that recursively traverses anonymous fields.
 
     Arguments:
@@ -109,8 +103,7 @@ def deep_items (type_):
         if k:
             yield k, v
         else:
-            for i in deep_items (v.type):
-                yield i
+            yield from deep_items (v.type)
 
 class TypePrinter(object):
     """The base class for type printers.

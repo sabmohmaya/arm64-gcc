@@ -75,21 +75,18 @@ def register_unwinder(locus, unwinder, replace=False):
         if gdb.parameter("verbose"):
             gdb.write("Registering global %s unwinder ...\n" % unwinder.name)
         locus = gdb
-    elif isinstance(locus, gdb.Objfile) or isinstance(locus, gdb.Progspace):
+    elif isinstance(locus, (gdb.Objfile, gdb.Progspace)):
         if gdb.parameter("verbose"):
             gdb.write("Registering %s unwinder for %s ...\n" %
                       (unwinder.name, locus.filename))
     else:
         raise TypeError("locus should be gdb.Objfile or gdb.Progspace or None")
 
-    i = 0
-    for needle in locus.frame_unwinders:
+    for i, needle in enumerate(locus.frame_unwinders):
         if needle.name == unwinder.name:
             if replace:
                 del locus.frame_unwinders[i]
             else:
-                raise RuntimeError("Unwinder %s already exists." %
-                                   unwinder.name)
-        i += 1
+                raise RuntimeError(f"Unwinder {unwinder.name} already exists.")
     locus.frame_unwinders.insert(0, unwinder)
     gdb.invalidate_cached_frames()

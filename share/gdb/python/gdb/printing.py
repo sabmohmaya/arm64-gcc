@@ -110,22 +110,18 @@ def register_pretty_printer(obj, printer, replace=False):
     if not hasattr(printer, "__name__") and not hasattr(printer, "name"):
         raise TypeError("printer missing attribute: name")
     if hasattr(printer, "name") and not hasattr(printer, "enabled"):
-        raise TypeError("printer missing attribute: enabled") 
+        raise TypeError("printer missing attribute: enabled")
     if not hasattr(printer, "__call__"):
         raise TypeError("printer missing attribute: __call__")
 
-    if hasattr(printer, "name"):
-      name = printer.name
-    else:
-      name = printer.__name__
+    name = printer.name if hasattr(printer, "name") else printer.__name__
     if obj is None or obj is gdb:
         if gdb.parameter("verbose"):
             gdb.write("Registering global %s pretty-printer ...\n" % name)
         obj = gdb
-    else:
-        if gdb.parameter("verbose"):
-            gdb.write("Registering %s pretty-printer for %s ...\n" % (
-                name, obj.filename))
+    elif gdb.parameter("verbose"):
+        gdb.write("Registering %s pretty-printer for %s ...\n" % (
+            name, obj.filename))
 
     # Printers implemented as functions are old-style.  In order to not risk
     # breaking anything we do not check __name__ here.
@@ -144,12 +140,10 @@ def register_pretty_printer(obj, printer, replace=False):
         i = 0
         for p in obj.pretty_printers:
             if hasattr(p, "name") and p.name == printer.name:
-                if replace:
-                    del obj.pretty_printers[i]
-                    break
-                else:
-                  raise RuntimeError("pretty-printer already registered: %s" %
-                                     printer.name)
+                if not replace:
+                    raise RuntimeError(f"pretty-printer already registered: {printer.name}")
+                del obj.pretty_printers[i]
+                break
             i = i + 1
 
     obj.pretty_printers.insert(0, printer)
@@ -210,15 +204,14 @@ class RegexpCollectionPrettyPrinter(PrettyPrinter):
         if not typename:
             return None
 
-        # Iterate over table of type regexps to determine
-        # if a printer is registered for that type.
-        # Return an instantiation of the printer if found.
-        for printer in self.subprinters:
-            if printer.enabled and printer.compiled_re.search(typename):
-                return printer.gen_printer(val)
-
-        # Cannot find a pretty printer.  Return None.
-        return None
+        return next(
+            (
+                printer.gen_printer(val)
+                for printer in self.subprinters
+                if printer.enabled and printer.compiled_re.search(typename)
+            ),
+            None,
+        )
 
 # A helper class for printing enum types.  This class is instantiated
 # with a list of enumerators to print a particular Value.
@@ -259,16 +252,14 @@ class FlagEnumerationPrinter(PrettyPrinter):
             self.initialized = True
             flags = gdb.lookup_type(self.name)
             self.enumerators = []
-            for field in flags.fields():
-                self.enumerators.append((field.name, field.enumval))
+            self.enumerators.extend(
+                (field.name, field.enumval) for field in flags.fields()
+            )
             # Sorting the enumerators by value usually does the right
             # thing.
             self.enumerators.sort(key = lambda x: x[1])
 
-        if self.enabled:
-            return _EnumInstance(self.enumerators, val)
-        else:
-            return None
+        return _EnumInstance(self.enumerators, val) if self.enabled else None
 
 
 # Builtin pretty-printers.

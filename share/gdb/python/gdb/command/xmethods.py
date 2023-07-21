@@ -42,11 +42,9 @@ def parse_xm_command_args(arg):
     argc = len(argv)
     if argc > 2:
         raise SyntaxError("Too many arguments to command.")
-    locus_regexp = ""
     matcher_name_regexp = ""
     xm_name_regexp = None
-    if argc >= 1:
-        locus_regexp = argv[0]
+    locus_regexp = argv[0] if argc >= 1 else ""
     if argc == 2:
         parts = argv[1].split(";", 1)
         matcher_name_regexp = parts[0]
@@ -105,11 +103,11 @@ def get_method_matchers_in_loci(loci, locus_re, matcher_re):
             if not locus_re.match('progspace'):
                 continue
             locus_type = "progspace"
-        else:
-            if not locus_re.match(locus.filename):
-                continue
+        elif locus_re.match(locus.filename):
             locus_type = "objfile"
-        locus_str = "%s %s" % (locus_type, locus.filename)
+        else:
+            continue
+        locus_str = f"{locus_type} {locus.filename}"
         xm_dict[locus_str] = [
             m for m in locus.xmethods if matcher_re.match(m.name)]
     return xm_dict
@@ -118,24 +116,21 @@ def get_method_matchers_in_loci(loci, locus_re, matcher_re):
 def print_xm_info(xm_dict, name_re):
     """Print a dictionary of xmethods."""
     def get_status_string(m):
-        if not m.enabled:
-            return " [disabled]"
-        else:
-          return ""
+        return " [disabled]" if not m.enabled else ""
 
     if not xm_dict:
         return
     for locus_str in xm_dict:
         if not xm_dict[locus_str]:
             continue
-        print ("Xmethods in %s:" % locus_str)
+        print(f"Xmethods in {locus_str}:")
         for matcher in xm_dict[locus_str]:
-            print ("  %s%s" % (matcher.name, get_status_string(matcher)))
+            print(f"  {matcher.name}{get_status_string(matcher)}")
             if not matcher.methods:
                 continue
             for m in matcher.methods:
                 if name_re is None or name_re.match(m.name):
-                    print ("    %s%s" % (m.name, get_status_string(m)))
+                    print(f"    {m.name}{get_status_string(m)}")
 
 
 def set_xm_status1(xm_dict, name_re, status):

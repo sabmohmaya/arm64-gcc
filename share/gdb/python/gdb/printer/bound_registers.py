@@ -29,14 +29,13 @@ class MpxBound128Printer:
     def __init__ (self, val):
         self.val = val
 
-    def to_string (self):
+    def to_string(self):
         upper = self.val["ubound"]
         lower = self.val["lbound"]
         size  = (long) ((upper) - (lower))
         if size > -1:
             size = size + 1
-        result = '{lbound = %s, ubound = %s} : size %s' % (lower, upper, size)
-        return result
+        return '{lbound = %s, ubound = %s} : size %s' % (lower, upper, size)
 
 gdb.printing.add_builtin_pretty_printer ('mpx_bound128',
                                          '^builtin_type_bound128',
